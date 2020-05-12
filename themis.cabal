@@ -1,7 +1,7 @@
 cabal-version:          >=1.10
 
 name:                   themis
-version:                0.0.0.1
+version:                0.0.1.0
 -- synopsis:
 -- description:
 -- bug-reports:
@@ -24,7 +24,6 @@ executable themis
 
     build-depends:      base >=4.13 && <4.14
                         , directory
-                        , microlens
                         , microlens-th
                         , brick
                         , vty

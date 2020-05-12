@@ -11,6 +11,7 @@ module Cursor
     , insertTop
     , insertBelow
     , insertBottom
+    , isEmpty
     , moveSelectionUp
     , moveSelectionDown
     , removeSelected
@@ -132,6 +133,11 @@ removeSelectedFocusPrev c = case selectPrev c of
     Nothing -> if next c == []
         then empty
         else let n = next c in Cursor {next = tail n, selected = Just $ head n, previous = []}
+
+isEmpty :: Cursor a -> Bool
+isEmpty c = case selected c of
+    Just _ -> False
+    Nothing -> True
 
 empty :: Cursor a
 empty = Cursor {next = [], selected = Nothing, previous = []}

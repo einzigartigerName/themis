@@ -3,6 +3,7 @@ module Main where
 
 import Tui
 import FileIO
+import Cursor (toList)
 
 import System.Directory
 import System.Environment
@@ -28,14 +29,20 @@ parseArgs ("-f" : f) = case f of
 -- unknown args
 parseArgs _ = putStrLn "Unknown Arguments!"
 
+
 -- start with file as base
 execute :: Either TodoLocation FilePath -> IO ()
 execute e = do
+    -- file to use
     fpath <- case e of
         Left l -> getFilePath l
         Right f -> return f
+    -- items to use on startup
     items <- readItemsFromFile fpath
-    tui (reverse items) fpath
+    -- end state
+    exitState <- tui (reverse items) fpath
+    -- write last changes to file
+    writeItemsToFile fpath $ toList $ tasks exitState
 
 -- main
 main :: IO ()

@@ -1,10 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tui where
+module Tui
+    ( TuiState (..)
+    , tui
+    )
+    where
 
 import Task as T
 import Cursor as C
+import FileIO as F
 
 import Lens.Micro.TH
 
@@ -15,12 +20,17 @@ import Brick.Util
 import Brick.Widgets.Edit as BE
 import Brick.Widgets.Center as BC
 import Brick.Widgets.Border as BB
-import Brick.AttrMap as BA
 import Brick.Widgets.Core
+
+import Control.Monad.IO.Class (liftIO)
 
 import Graphics.Vty.Input.Events
 import Graphics.Vty.Attributes
 
+
+{-------------------------------------------------------------------------------------------------
+                                            DataTypes
+-------------------------------------------------------------------------------------------------}
 data InsertLocation = Top | Bottom | Above | Below
     deriving Eq
 
@@ -38,11 +48,10 @@ makeLenses ''TuiState
                                             TUI
 -------------------------------------------------------------------------------------------------}
 -- | Main call, start Tui
-tui :: Tasks -> FilePath -> IO ()
+tui :: Tasks -> FilePath -> IO TuiState
 tui ts fp = do
     initialState <- buildInitialState ts fp
-    _ <- defaultMain tuiApp initialState
-    return ()
+    defaultMain tuiApp initialState
 
 -- | Build Tui App
 tuiApp :: App TuiState e String
@@ -55,13 +64,13 @@ tuiApp =
         , appAttrMap = const $ attrMap mempty attrMappings
         }
 
-titleAttr :: BA.AttrName
+titleAttr :: AttrName
 titleAttr = "title"
 
-selectAttr :: BA.AttrName
+selectAttr :: AttrName
 selectAttr = "selected"
 
-attrMappings :: [(BA.AttrName, Attr)]
+attrMappings :: [(AttrName, Attr)]
 attrMappings =
     [ (selectAttr,      bg cyan)
     , (BB.borderAttr,   yellow `on` black)
@@ -125,6 +134,15 @@ buildInitialState ts fp =
         , insertLocal = Bottom
         }
 
+-- | writes changes to file
+updateFile :: TuiState -> EventM String (Next TuiState)
+updateFile s =
+    let fpath = file s
+        items = C.toList $ tasks s
+    in do
+        liftIO $ F.writeItemsToFile fpath items
+        continue s
+
 
 {-------------------------------------------------------------------------------------------------
                                             items
@@ -162,14 +180,20 @@ newItem s =
         (tasks s) new, nID = nxID + 1}
         else s
 
+removeItem :: TuiState -> TuiState
+removeItem s =
+    let c = C.removeSelectedFocusNext $ tasks s
+        e = C.isEmpty c
+    in s {tasks = c, showEditor = e}
+
 -- | toggle checked status on selection
 toggleCheck :: TuiState -> TuiState
-toggleCheck ts =
-    let c = tasks ts
+toggleCheck s =
+    let c = tasks s
     in case C.selected c of
         Just sel -> let update = sel {checked = not $ checked sel} in
-            ts {tasks = c {selected = Just update}}
-        Nothing -> ts
+            s {tasks = c {selected = Just update}}
+        Nothing -> s
 
 
 {-------------------------------------------------------------------------------------------------
@@ -191,6 +215,7 @@ handleTuiEvent :: TuiState -> BrickEvent String e -> EventM String (Next TuiStat
 handleTuiEvent s e =
     if showEditor s == False
         then case e of
+            -- KeyEvent
             VtyEvent vtye ->
                 case vtye of
                     -- quit
@@ -203,17 +228,15 @@ handleTuiEvent s e =
                     EvKey (KChar 'j') []    -> continue $ updateSelection Up s
                     EvKey KUp []            -> continue $ updateSelection Up s
                     -- move selected item down
-                    EvKey (KChar 'K') []    -> continue $ moveSelection Down s
-                    EvKey KDown [MShift]    -> continue $ moveSelection Down s
+                    EvKey (KChar 'K') []    -> updateFile $ moveSelection Down s
+                    EvKey KDown [MShift]    -> updateFile $ moveSelection Down s
                     -- move selected item up
-                    EvKey (KChar 'J') []    -> continue $ moveSelection Up s
-                    EvKey KUp [MShift]      -> continue $ moveSelection Up s
+                    EvKey (KChar 'J') []    -> updateFile $ moveSelection Up s
+                    EvKey KUp [MShift]      -> updateFile $ moveSelection Up s
                     -- toggle Items checked state
-                    EvKey (KChar 'c') []    -> continue $ toggleCheck s
+                    EvKey (KChar 'c') []    -> updateFile $ toggleCheck s
                     -- delete Item
-                    EvKey (KChar 'd') []    -> do
-                        let c = tasks s
-                        continue $ s {tasks = C.removeSelectedFocusNext c}
+                    EvKey (KChar 'd') []    -> updateFile $ removeItem s
                     -- insert new Item above selection
                     EvKey (KChar 'i') []    -> continue $ s {insertLocal = Above, showEditor = True }
                     -- insert new Item top of List
@@ -232,9 +255,11 @@ handleInsertEvent s e = case e of
     VtyEvent vtye ->
         case vtye of
             -- cancel insert, reset editor
-            EvKey KEsc [] -> continue $ resetEditor s
+            EvKey KEsc [] -> if C.isEmpty $ tasks s
+                then halt s
+                else continue $ resetEditor s
             -- insert new item
-            EvKey KEnter [] -> continue $ resetEditor $ newItem s
+            EvKey KEnter [] -> updateFile $ resetEditor $ newItem s
             -- everything else
             _ -> continue =<< handleEventLensed s insertEditor BE.handleEditorEvent vtye
     _ -> continue s
