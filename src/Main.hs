@@ -20,7 +20,7 @@ parseArgs [] = do
 -- force use of std dir
 parseArgs ["-d"] = execute $ Left StdDir
 -- force use of current dir
-parseArgs ["-c"] = execute $ Left CurrentDir 
+parseArgs ["-l"] = execute $ Left CurrentDir 
 -- force use of given file
 parseArgs ("-f" : f) = case f of
     [] -> putStrLn "No File provided!"

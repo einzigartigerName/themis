@@ -13,6 +13,9 @@ import Brick.Main
 import Brick.Types
 import Brick.Util
 import Brick.Widgets.Edit as BE
+import Brick.Widgets.Center as BC
+import Brick.Widgets.Border as BB
+import Brick.AttrMap as BA
 import Brick.Widgets.Core
 
 import Graphics.Vty.Input.Events
@@ -49,31 +52,60 @@ tuiApp =
         , appChooseCursor = showFirstCursor
         , appHandleEvent = handleTuiEvent
         , appStartEvent = pure
-        , appAttrMap = const $ attrMap mempty [("selected", bg cyan)]
+        , appAttrMap = const $ attrMap mempty attrMappings
         }
+
+titleAttr :: BA.AttrName
+titleAttr = "title"
+
+selectAttr :: BA.AttrName
+selectAttr = "selected"
+
+attrMappings :: [(BA.AttrName, Attr)]
+attrMappings =
+    [ (selectAttr,      bg cyan)
+    , (BB.borderAttr,   yellow `on` black)
+    , (titleAttr,       fg cyan)
+    ]
 
 -- | draw Tui
 drawTui :: TuiState -> [Widget String]
-drawTui ts = let c = tasks ts
-    in if showEditor ts == True
-        -- render editor
-        then [BE.renderEditor (str . unlines) True $ _insertEditor ts]
-        -- render list
-        else case C.selected c of
-            Nothing -> [BE.renderEditor (str . unlines) True $ _insertEditor ts]
-            Just s -> [vBox $
-                concat
+drawTui ts =
+    let e = showEditor ts
+        c = tasks ts
+        i = case C.selected c of
+            Just s ->
+                [ vBox $
+                  concat $
                     [ map (drawItem False) $ reverse $ C.next c 
                     , [drawItem True $ s]
                     , map (drawItem False) $ C.previous c
                     ]
                 ]
+            Nothing -> []
+    in case i of
+        -- if no items to render default render editor
+        [] -> drawEditor $ _insertEditor ts
+        -- if editor in use show, else only items
+        _ -> (if e then drawEditor $ _insertEditor ts else []) ++ i
+
+-- | draw editor
+drawEditor :: Editor String String -> [Widget String]
+drawEditor e = 
+    [ BC.centerLayer $
+      BB.borderWithLabel
+        (BB.vBorder <+> (withAttr titleAttr $ str " New Item ") <+> BB.vBorder) $
+      hLimit 40 $
+      vLimit 3 $
+      withAttr "editor" $ 
+      BE.renderEditor (str . unlines) True e
+    ]
 
 -- | Draw Item in Todo List
 drawItem :: Bool -> Item -> Widget n
 drawItem s =
     (if s
-        then withAttr "selected"
+        then withAttr selectAttr
         else id) .
     serializeItemW
 
@@ -121,13 +153,14 @@ newItem s =
     let nxID = nID s
         t = head $ BE.getEditContents $ _insertEditor s
         new = Item {iID = nxID, checked = False, text = t}
-    in
-    s {tasks = (case insertLocal s of
-        Below   -> C.insertAbove
-        Above   -> C.insertBelow
-        Bottom  -> C.insertTop
-        Top     -> C.insertBottom) 
-    (tasks s) new, nID = nxID + 1}
+    in if t /= ""
+        then s {tasks = (case insertLocal s of
+            Below   -> C.insertAbove
+            Above   -> C.insertBelow
+            Bottom  -> C.insertTop
+            Top     -> C.insertBottom) 
+        (tasks s) new, nID = nxID + 1}
+        else s
 
 -- | toggle checked status on selection
 toggleCheck :: TuiState -> TuiState
@@ -162,6 +195,7 @@ handleTuiEvent s e =
                 case vtye of
                     -- quit
                     EvKey (KChar 'q') []    -> halt s
+                    EvKey KEsc []           -> halt s
                     -- move down
                     EvKey (KChar 'k') []    -> continue $ updateSelection Down s
                     EvKey KDown []          -> continue $ updateSelection Down s

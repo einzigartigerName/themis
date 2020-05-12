@@ -1,6 +1,6 @@
 cabal-version:          >=1.10
 
-name:                   tasker
+name:                   themis
 version:                0.0.0.1
 -- synopsis:
 -- description:
@@ -14,7 +14,7 @@ maintainer:             nelson.gillo@gmx.de
 build-type:             Simple
 -- extra-source-files:     CHANGELOG.md
 
-executable tasker
+executable themis
     main-is:            Main.hs
     ghc-options:        -Wall -Wextra -threaded
     other-modules:      Cursor
