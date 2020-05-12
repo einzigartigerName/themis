@@ -1,0 +1,33 @@
+cabal-version:          >=1.10
+
+name:                   tasker
+version:                0.0.0.1
+-- synopsis:
+-- description:
+-- bug-reports:
+-- license:
+license-file:           LICENSE
+author:                 einzigartigerName
+maintainer:             nelson.gillo@gmx.de
+-- copyright:
+-- category:
+build-type:             Simple
+-- extra-source-files:     CHANGELOG.md
+
+executable tasker
+    main-is:            Main.hs
+    ghc-options:        -Wall -Wextra -threaded
+    other-modules:      Cursor
+                        , FileIO
+                        , Tui
+                        , Task
+
+    build-depends:      base >=4.13 && <4.14
+                        , directory
+                        , microlens
+                        , microlens-th
+                        , brick
+                        , vty
+
+    hs-source-dirs:     src/
+    default-language:   Haskell2010
