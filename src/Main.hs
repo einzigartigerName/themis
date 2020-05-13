@@ -26,10 +26,26 @@ parseArgs ["-d"] = execute $ Left StdDir
 parseArgs ["-l"] = execute $ Left CurrentDir 
 -- force use of given file
 parseArgs ("-f" : f) = case f of
-    [] -> putStrLn "No File provided!"
-    (x : _) -> execute $ Right x
+    (x : []) -> execute $ Right x
+    _ -> usage
+-- print usage
+parseArgs ("-h" : _) = usage
 -- unknown args
-parseArgs _ = putStrLn "Unknown Arguments!"
+parseArgs x = do
+    putStrLn $ "Unknown Arguments: " ++  show x 
+    usage
+
+-- print usage
+usage :: IO ()
+usage = do
+    putStrLn "Usage:"
+    putStrLn "\ttodo [ARGUMENT] [FILE]"
+    putStrLn "\t-c\t- use \'todo.md\' in the current directory"
+    putStrLn "\t-d\t- use \'todo.md\' in the home directory"
+    putStrLn "\t-h\t- show this help dialog"
+    putStrLn "\t-f FILE\t- use FILE as your todo list"
+
+
 
 
 -- start with file as base

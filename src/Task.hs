@@ -47,4 +47,4 @@ serializeW :: Tasks -> [Widget n]
 serializeW e = map serializeItemW e
 
 serializeItemW :: Item -> Widget n
-serializeItemW e = str $ (if checked e then "✓ " else "x ") ++ (text e)
+serializeItemW e = str $ (if checked e then "✓ " else "  ") ++ (text e)
