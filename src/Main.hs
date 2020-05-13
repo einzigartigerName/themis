@@ -3,10 +3,12 @@ module Main where
 
 import Tui
 import FileIO
-import Cursor (toList)
 
 import System.Directory
 import System.Environment
+
+import Brick.Widgets.List as BL (listElements)
+import Data.Vector as Vec (toList)
 
 
 parseArgs :: [String] -> IO ()
@@ -41,8 +43,9 @@ execute e = do
     items <- readItemsFromFile fpath
     -- end state
     exitState <- tui (reverse items) fpath
+    let exitItems = Vec.toList $ BL.listElements $ _tasks exitState 
     -- write last changes to file
-    writeItemsToFile fpath $ toList $ tasks exitState
+    writeItemsToFile fpath exitItems
 
 -- main
 main :: IO ()
