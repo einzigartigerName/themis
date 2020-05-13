@@ -125,12 +125,13 @@ drawItem s =
 -- | Init TuiState
 buildInitialState :: Tasks -> FilePath -> IO TuiState
 buildInitialState ts fp =
+    let cursor = C.fromList ts in
     pure TuiState
         { tasks = C.fromList ts
         , file = fp
         , nID = T.nextID ts
         , _insertEditor = BE.editor "Insert" (Just 1) ""
-        , showEditor = False
+        , showEditor = C.isEmpty cursor
         , insertLocal = Bottom
         }
 
