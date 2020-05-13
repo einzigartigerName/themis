@@ -10,16 +10,17 @@ module Tui
 import Task as T
 import FileIO as F
 
+import Lens.Micro
 import Lens.Micro.TH
 
 import Brick.AttrMap
 import Brick.Main
 import Brick.Types
 import Brick.Util
-import Brick.Widgets.Edit as BE
-import Brick.Widgets.List as BL
-import Brick.Widgets.Center as BC
-import Brick.Widgets.Border as BB
+import qualified Brick.Widgets.Edit as BE
+import qualified Brick.Widgets.List as BL
+import qualified Brick.Widgets.Center as BC
+import qualified Brick.Widgets.Border as BB
 import Brick.Widgets.Core
 
 import Control.Monad.IO.Class (liftIO)
@@ -43,12 +44,13 @@ data TuiState = TuiState
     { _tasks :: BL.List WidgetName Item 
     , file :: FilePath
     , nID :: Int
-    , _insertEditor :: BE.Editor String WidgetName
+    , _itemEditor :: BE.Editor String WidgetName
     , showEditor :: Bool
     , editItem :: Bool
     , insertLocal :: InsertLocation
     }
 makeLenses ''TuiState
+
 
 {-------------------------------------------------------------------------------------------------
                                             Tui
@@ -70,6 +72,7 @@ tuiApp =
         , appAttrMap = const $ attrMap mempty attrMappings
         }
 
+
 {-------------------------------------------------------------------------------------------------
                                             State
 -------------------------------------------------------------------------------------------------}
@@ -81,7 +84,7 @@ buildInitialState ts fp =
         { _tasks = BL.list WList (Vec.fromList ts) 1
         , file = fp
         , nID = T.nextID ts
-        , _insertEditor = BE.editor WEditor (Just 1) ""
+        , _itemEditor = BE.editor WEditor (Just 1) ""
         , showEditor = ts == []
         , editItem = False
         , insertLocal = Bottom
@@ -97,6 +100,16 @@ updateFile s =
         continue s
 
 
+-- | prepare State for Item Editing
+prepareEditItem :: TuiState -> TuiState
+prepareEditItem s =
+    let li = _tasks s
+        sContent = case BL.listSelectedElement li of
+            Just (_, item) -> text item
+            Nothing -> ""
+    in s {editItem = True, showEditor = True, _itemEditor = setEditorContent sContent}
+
+
 {-------------------------------------------------------------------------------------------------
                                             Tui Rendering
 -------------------------------------------------------------------------------------------------}
@@ -105,9 +118,11 @@ titleAttr = "title"
 
 attrMappings :: [(AttrName, Attr)]
 attrMappings =
-    [ (BL.listSelectedAttr, bg cyan)
-    , (BB.borderAttr,   yellow `on` black)
-    , (titleAttr,       fg cyan)
+    [ (BL.listSelectedAttr, black `on` brightCyan)
+    , ("displayFile",       black `on` cyan)
+    , (BB.borderAttr,       yellow `on` black)
+    , (titleAttr,           fg cyan)
+    , (BE.editFocusedAttr,  brightWhite `on` black)
     ]
 
 -- | draw Tui
@@ -115,21 +130,23 @@ drawTui :: TuiState -> [Widget WidgetName]
 drawTui s =
     let e = showEditor s
         li = _tasks s
-        lRender = [BL.renderList drawItem True li]
-        empty = null $ listElements li
+        lRender = [padBottom (Pad 2) $ BL.renderList drawItem True li]
+        empty = null $ BL.listElements li
+        filePath = [drawInfoLayer s]
     in if e || empty
-        then (drawEditor $ _insertEditor s) ++ lRender
-        else lRender
---
+        then filePath ++ (drawEditor (editItem s) (_itemEditor s)) ++ lRender
+        else filePath ++ lRender
+
 -- | draw editor
-drawEditor :: Editor String WidgetName -> [Widget WidgetName]
-drawEditor e = 
+drawEditor :: Bool -> BE.Editor String WidgetName -> [Widget WidgetName]
+drawEditor b e = 
+    let title = if b then " Edit Item " else " New Item "
+    in
     [ BC.centerLayer $
+      hLimitPercent 70 $
       BB.borderWithLabel
-        (BB.vBorder <+> (withAttr titleAttr $ str " New Item ") <+> BB.vBorder) $
-      hLimit 40 $
-      vLimit 3 $
-      withAttr "editor" $ 
+        (BB.vBorder <+> (withAttr titleAttr $ str title) <+> BB.vBorder) $
+      withAttr BE.editFocusedAttr $ 
       BE.renderEditor (str . unlines) True e
     ]
 
@@ -140,7 +157,14 @@ drawItem sel =
         else id) .
     serializeItemW
 
-
+-- | draw Row at bottom to Show FilePath
+drawInfoLayer :: TuiState -> Widget WidgetName
+drawInfoLayer s = Widget Fixed Fixed $ do
+    c <- getContext
+    let h = c^.availHeightL
+    render $ translateBy (Location (0, h-1)) $
+        withDefAttr "displayFile" $
+        str ("Using File: " <> file s)
 {-------------------------------------------------------------------------------------------------
                                             items
 -------------------------------------------------------------------------------------------------}
@@ -164,15 +188,15 @@ updateItems s = if editItem s
 -- | edit the current seleted item
 editSelectedItem :: TuiState -> TuiState
 editSelectedItem s =
-    let edit item = item {text = head $ BE.getEditContents $ _insertEditor s}
+    let edit item = item {text = head $ BE.getEditContents $ _itemEditor s}
         li = _tasks s
-    in s {_tasks = BL.listModify edit li, editItem = False}
+    in s {_tasks = BL.listModify edit li}
 
 -- | insert a new Item
 newItem :: TuiState -> TuiState
 newItem s =
     let nxID = nID s
-        content = head $ BE.getEditContents $ _insertEditor s
+        content = head $ BE.getEditContents $ _itemEditor s
         new = Item {iID = nxID, checked = False, text = content}
         li = _tasks s
         pos = insertPosition (insertLocal s) li
@@ -197,7 +221,7 @@ removeItem :: TuiState -> TuiState
 removeItem s =
     let li = _tasks s
         posM = BL.listSelected li
-        e = (Vec.length $ listElements li) - 1 <= 0
+        e = (Vec.length $ BL.listElements li) - 1 <= 0
     in case posM of
         Just pos -> s {_tasks = BL.listRemove pos li, showEditor = e}
         Nothing -> s
@@ -245,11 +269,15 @@ switchItems li a b =
 -- | reset Editor and State after insert/cancel
 resetEditor :: TuiState -> TuiState
 resetEditor s = s
-    { _insertEditor = BE.editor WEditor (Just 1) ""
+    { _itemEditor = BE.editor WEditor (Just 1) ""
     , showEditor = False
+    , editItem = False
     , insertLocal = Bottom
     }
 
+-- | get the content of the editor
+setEditorContent :: String -> BE.Editor String WidgetName
+setEditorContent = BE.editor WEditor (Just 1)
 {-------------------------------------------------------------------------------------------------
                                             Events
 -------------------------------------------------------------------------------------------------}
@@ -275,7 +303,7 @@ handleTuiEvent s e =
                     -- delete Item
                     EvKey (KChar 'd') []    -> updateFile $ removeItem s
                     -- edit Item
-                    EvKey (KChar 'e') []    -> continue $ s {editItem = True, showEditor = True}
+                    EvKey (KChar 'e') []    -> continue $ prepareEditItem s
                     -- insert new Item above selection
                     EvKey (KChar 'i') []    -> continue $ s {insertLocal = Above, showEditor = True }
                     -- insert new Item top of List
@@ -302,5 +330,5 @@ handleInsertEvent s e = case e of
             -- insert new item
             EvKey KEnter [] -> updateFile $ resetEditor $ updateItems s
             -- everything else
-            _ -> continue =<< handleEventLensed s insertEditor BE.handleEditorEvent vtye
+            _ -> continue =<< handleEventLensed s itemEditor BE.handleEditorEvent vtye
     _ -> continue s

@@ -1,0 +1,6 @@
+packages: themis.cabal
+
+package themis
+  optimization: True
+  split-sections: True
+  executable-stripping: True
