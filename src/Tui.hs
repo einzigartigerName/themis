@@ -45,6 +45,7 @@ data TuiState = TuiState
     , nID :: Int
     , _insertEditor :: BE.Editor String WidgetName
     , showEditor :: Bool
+    , editItem :: Bool
     , insertLocal :: InsertLocation
     }
 makeLenses ''TuiState
@@ -82,6 +83,7 @@ buildInitialState ts fp =
         , nID = T.nextID ts
         , _insertEditor = BE.editor WEditor (Just 1) ""
         , showEditor = ts == []
+        , editItem = False
         , insertLocal = Bottom
         }
 
@@ -153,7 +155,18 @@ moveSelection d s =
             Nothing -> s
         Nothing -> s
 
+-- | update items (insert/edit Item)
+updateItems :: TuiState -> TuiState
+updateItems s = if editItem s
+    then editSelectedItem s
+    else newItem s
 
+-- | edit the current seleted item
+editSelectedItem :: TuiState -> TuiState
+editSelectedItem s =
+    let edit item = item {text = head $ BE.getEditContents $ _insertEditor s}
+        li = _tasks s
+    in s {_tasks = BL.listModify edit li, editItem = False}
 
 -- | insert a new Item
 newItem :: TuiState -> TuiState
@@ -261,14 +274,16 @@ handleTuiEvent s e =
                     EvKey (KChar 'c') []    -> updateFile $ toggleCheck s
                     -- delete Item
                     EvKey (KChar 'd') []    -> updateFile $ removeItem s
+                    -- edit Item
+                    EvKey (KChar 'e') []    -> continue $ s {editItem = True, showEditor = True}
                     -- insert new Item above selection
-                    EvKey (KChar 'i') []    -> updateFile $ s {insertLocal = Above, showEditor = True }
+                    EvKey (KChar 'i') []    -> continue $ s {insertLocal = Above, showEditor = True }
                     -- insert new Item top of List
-                    EvKey (KChar 'I') []    -> updateFile $ s {insertLocal = Top, showEditor = True }
+                    EvKey (KChar 'I') []    -> continue $ s {insertLocal = Top, showEditor = True }
                     -- append new Item below selection
-                    EvKey (KChar 'a') []    -> updateFile $ s {insertLocal = Below, showEditor = True } 
+                    EvKey (KChar 'a') []    -> continue $ s {insertLocal = Below, showEditor = True } 
                     -- append new Item to bottom of List
-                    EvKey (KChar 'A') []    -> updateFile $ s {insertLocal = Bottom, showEditor = True }
+                    EvKey (KChar 'A') []    -> continue $ s {insertLocal = Bottom, showEditor = True }
                     -- handle other events
                     ev -> continue =<< handleEventLensed s tasks (BL.handleListEventVi BL.handleListEvent) ev
                     -- _ -> continue s
@@ -285,7 +300,7 @@ handleInsertEvent s e = case e of
                 then halt s
                 else continue $ resetEditor s
             -- insert new item
-            EvKey KEnter [] -> updateFile $ resetEditor $ newItem s
+            EvKey KEnter [] -> updateFile $ resetEditor $ updateItems s
             -- everything else
             _ -> continue =<< handleEventLensed s insertEditor BE.handleEditorEvent vtye
     _ -> continue s
