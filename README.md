@@ -1,7 +1,7 @@
-# Themis
-TUI todo list
+# Themis - a todo list for your terminal
 
 ![Screenshot](screenshot.jpeg)
+
 ## Install
 ```shell
 git clone https://github.com/einzigartigername/themis.git
@@ -10,16 +10,16 @@ cabal install
 ```
 
 ## Usage
-Themis will first look in the current folder for a `todo.md` file, if not found, it will go look in your home directory and crate one, if non found.
+Themis will look in the current folder for a `todo.md` file. If not found, it will use/create one in your home directory.
 
 ### Arguments:
 `todo [ARGUMENT] [OPTION]`
 * `-c`: use current directory
 * `-d`: use home directory
-* `-f FILE`: use specified file
+* `-f FILE`: use FILE
 * `-h`: display help dialog
 
-If file does not exist, themis will create one.
+If file does not exist, `todo` will create one.
 
 ### Keybinds
 * `Up` or `k` - Up
