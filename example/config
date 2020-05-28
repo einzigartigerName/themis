@@ -1,0 +1,27 @@
+[color]
+itemBG = black 
+itemFG = brightWhite 
+selectionBG = brightCyan 
+selectionFG = black 
+fileBG = cyan 
+fileFG = black 
+editorBorderBG = black 
+editorBorderFG = yellow 
+editoLableBG = black 
+editoLableFG = cyan 
+editorBG = black 
+editorFG = brightWhite 
+
+[keybinds]
+insert = i
+insertTop = shift + i
+append = a
+insertBottom = shift + a 
+edit = e
+delete = d
+toggleCheck = c 
+up = j
+down = k
+moveUp = shift + j
+moveDown = shift + k
+quit = q
