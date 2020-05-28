@@ -3,6 +3,7 @@ module Main where
 
 import Tui
 import FileIO
+import Config
 
 import System.Directory
 import System.Environment
@@ -51,6 +52,10 @@ usage = do
 -- start with file as base
 execute :: Either TodoLocation FilePath -> IO ()
 execute e = do
+    -- config
+    cpath <- getConfigFilePath
+    -- colors and keys to use
+    (colors, keys) <- parseConfig cpath
     -- file to use
     fpath <- case e of
         Left l -> getFilePath l
@@ -58,7 +63,7 @@ execute e = do
     -- items to use on startup
     items <- readItemsFromFile fpath
     -- end state
-    exitState <- tui (reverse items) fpath
+    exitState <- tui (reverse items) colors keys fpath
     let exitItems = Vec.toList $ BL.listElements $ _tasks exitState 
     -- write last changes to file
     writeItemsToFile fpath exitItems

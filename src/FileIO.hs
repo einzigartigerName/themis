@@ -3,6 +3,7 @@
 module FileIO
     ( TodoLocation (..)
     , getFilePath
+    , getConfigFilePath
     , readItemsFromFile
     , stdFileName
     , writeItemsToFile
@@ -21,9 +22,16 @@ import Data.Maybe (catMaybes)
 
 data TodoLocation = CurrentDir | StdDir
 
--- standardd file name to be used as input/output file
+{-------------------------------------------------------------------------------------------------
+                                            FilePath Handling
+-------------------------------------------------------------------------------------------------}
+-- standard file name to be used as input/output file
 stdFileName :: FilePath
 stdFileName = "todo.md"
+
+-- standard config directory + file
+stdConfigFile :: FilePath
+stdConfigFile = "themis/config"
 
 -- look for file in current directory, then homefolder
 getFilePath :: TodoLocation -> IO FilePath
@@ -34,10 +42,25 @@ getFilePath StdDir = do
     let path = home ++ "/" ++ stdFileName
     return path
 
+getConfigFilePath :: IO (Maybe FilePath)
+getConfigFilePath = do
+    cdir <- getXdgDirectory XdgConfig stdConfigFile
+    -- let path = cdir ++ "/" ++ stdConfigFile
+    exists <- doesFileExist cdir
+    if exists
+        then return $ Just cdir
+        else return Nothing
+{-------------------------------------------------------------------------------------------------
+                                            Writing File
+-------------------------------------------------------------------------------------------------}
 -- | Writes all tasks contained in Tasks into the file located at the given FilePath 
 writeItemsToFile :: FilePath -> Tasks -> IO ()
 writeItemsToFile path tasks = writeFile path (serializeF tasks)
 
+
+{-------------------------------------------------------------------------------------------------
+                                            Reading File
+-------------------------------------------------------------------------------------------------}
 -- | Reads all Items from the file located at the given FilePath and return them
 readItemsFromFile :: FilePath -> IO [Item]
 readItemsFromFile path = do
@@ -65,6 +88,10 @@ readItemsFromFile path = do
             return (catMaybes mes)
 
 
+
+{-------------------------------------------------------------------------------------------------
+                                            Parsing LIne
+-------------------------------------------------------------------------------------------------}
 -- return tupel of next ID for the next Item to be passed and current result of parsing
 processLine :: String -> ID -> (ID, Maybe Item)
 processLine line nid = case parse line nid of
@@ -92,7 +119,9 @@ constructItem b eid t = Just(Item {iID = eid, checked = b, text = t})
 
 
 
-{-----------------Utility------------------}
+{-------------------------------------------------------------------------------------------------
+                                            Util
+-------------------------------------------------------------------------------------------------}
 stripLeadingWhitespace :: String -> String
 stripLeadingWhitespace (' ' : xs) = stripLeadingWhitespace xs
 stripLeadingWhitespace xs = xs 

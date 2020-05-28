@@ -1,7 +1,7 @@
 cabal-version:          >=1.10
 
 name:                   themis
-version:                0.0.1.2
+version:                0.0.2.0
 -- synopsis:
 -- description:
 -- bug-reports:
@@ -17,15 +17,19 @@ build-type:             Simple
 executable todo
     main-is:            Main.hs
     ghc-options:        -Wall -Wextra -threaded
-    other-modules:      FileIO
+    other-modules:      Attr
+                        , Config
+                        , FileIO
                         , Tui
                         , Task
 
     build-depends:      base >=4.13 && <4.14
+                        , brick
+                        , config-ini
                         , directory
                         , microlens
                         , microlens-th
-                        , brick
+                        , text
                         , vty
                         , vector
 

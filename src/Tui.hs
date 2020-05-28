@@ -9,6 +9,8 @@ module Tui
 
 import Task as T
 import FileIO as F
+import Config
+import Attr
 
 import Lens.Micro
 import Lens.Micro.TH
@@ -16,7 +18,6 @@ import Lens.Micro.TH
 import Brick.AttrMap
 import Brick.Main
 import Brick.Types
-import Brick.Util
 import qualified Brick.Widgets.Edit as BE
 import qualified Brick.Widgets.List as BL
 import qualified Brick.Widgets.Center as BC
@@ -41,7 +42,8 @@ data WidgetName = WEditor | WList
     deriving (Eq, Ord, Show)
 
 data TuiState = TuiState
-    { _tasks :: BL.List WidgetName Item 
+    { keybinds :: CKeys
+    , _tasks :: BL.List WidgetName Item
     , file :: FilePath
     , nID :: Int
     , _itemEditor :: BE.Editor String WidgetName
@@ -56,20 +58,24 @@ makeLenses ''TuiState
                                             Tui
 -------------------------------------------------------------------------------------------------}
 -- | Main call, start Tui
-tui :: Tasks -> FilePath -> IO TuiState
-tui ts fp = do
-    initialState <- buildInitialState ts fp
-    defaultMain tuiApp initialState
+tui :: Tasks                -- Tasks 
+    -> CColors              -- Colors
+    -> CKeys                -- Keybinds
+    -> FilePath             -- File to use
+    -> IO TuiState          -- Exit State
+tui ts colors keys fp = do
+    initialState <- buildInitialState ts keys fp
+    defaultMain (tuiApp $ buildAttrMap colors) initialState
 
 -- | Build Tui App
-tuiApp :: App TuiState e WidgetName
-tuiApp =
+tuiApp :: [(AttrName, Attr)] -> App TuiState e WidgetName
+tuiApp attr =
     App
         { appDraw = drawTui
         , appChooseCursor = showFirstCursor
         , appHandleEvent = handleTuiEvent
         , appStartEvent = pure
-        , appAttrMap = const $ attrMap mempty attrMappings
+        , appAttrMap = const $ attrMap mempty attr
         }
 
 
@@ -77,11 +83,11 @@ tuiApp =
                                             State
 -------------------------------------------------------------------------------------------------}
 -- | Init TuiState
-buildInitialState :: Tasks -> FilePath -> IO TuiState
-buildInitialState ts fp =
-    --let cursor = C.fromList ts in
+buildInitialState :: Tasks -> CKeys -> FilePath -> IO TuiState
+buildInitialState ts keys fp =
     pure TuiState
-        { _tasks = BL.list WList (Vec.fromList ts) 1
+        { keybinds = keys
+        , _tasks = BL.list WList (Vec.fromList ts) 1
         , file = fp
         , nID = T.nextID ts
         , _itemEditor = BE.editor WEditor (Just 1) ""
@@ -113,18 +119,6 @@ prepareEditItem s =
 {-------------------------------------------------------------------------------------------------
                                             Tui Rendering
 -------------------------------------------------------------------------------------------------}
-titleAttr :: AttrName
-titleAttr = "title"
-
-attrMappings :: [(AttrName, Attr)]
-attrMappings =
-    [ (BL.listSelectedAttr, black `on` brightCyan)
-    , ("displayFile",       black `on` cyan)
-    , (BB.borderAttr,       yellow `on` black)
-    , (titleAttr,           fg cyan)
-    , (BE.editFocusedAttr,  brightWhite `on` black)
-    ]
-
 -- | draw Tui
 drawTui :: TuiState -> [Widget WidgetName]
 drawTui s =
@@ -144,17 +138,18 @@ drawEditor b e =
     in
     [ BC.centerLayer $
       hLimitPercent 70 $
+      
       BB.borderWithLabel
-        (BB.vBorder <+> (withAttr titleAttr $ str title) <+> BB.vBorder) $
-      withAttr BE.editFocusedAttr $ 
+        (BB.vBorder <+> (withAttr editorLableAttr $ str title) <+> BB.vBorder) $
+      withAttr editorAttr $ 
       BE.renderEditor (str . unlines) True e
     ]
 
 drawItem :: Bool -> Item -> Widget WidgetName
 drawItem sel =
     (if sel
-        then withAttr BL.listSelectedAttr
-        else id) .
+        then withAttr selAttr
+        else withAttr itemAttr) .
     serializeItemW
 
 -- | draw Row at bottom to Show FilePath
@@ -163,7 +158,7 @@ drawInfoLayer s = Widget Fixed Fixed $ do
     c <- getContext
     let h = c^.availHeightL
     render $ translateBy (Location (0, h-1)) $
-        withDefAttr "displayFile" $
+        withAttr fileAttr $
         str ("Using File: " <> file s)
 {-------------------------------------------------------------------------------------------------
                                             items
@@ -287,34 +282,7 @@ handleTuiEvent s e =
     if not $ showEditor s
         then case e of
             -- KeyEvent
-            VtyEvent vtye ->
-                case vtye of
-                    -- quit
-                    EvKey (KChar 'q')   []  -> halt s
-                    EvKey KEsc          []  -> halt s
-                    -- move selected item down
-                    EvKey (KChar 'K') []    -> updateFile $ moveSelection Down s
-                    EvKey KDown [MShift]    -> updateFile $ moveSelection Down s
-                    -- move selected item up
-                    EvKey (KChar 'J') []    -> updateFile $ moveSelection Up s
-                    EvKey KUp [MShift]      -> updateFile $ moveSelection Up s
-                    -- toggle checked
-                    EvKey (KChar 'c') []    -> updateFile $ toggleCheck s
-                    -- delete Item
-                    EvKey (KChar 'd') []    -> updateFile $ removeItem s
-                    -- edit Item
-                    EvKey (KChar 'e') []    -> continue $ prepareEditItem s
-                    -- insert new Item above selection
-                    EvKey (KChar 'i') []    -> continue $ s {insertLocal = Above, showEditor = True }
-                    -- insert new Item top of List
-                    EvKey (KChar 'I') []    -> continue $ s {insertLocal = Top, showEditor = True }
-                    -- append new Item below selection
-                    EvKey (KChar 'a') []    -> continue $ s {insertLocal = Below, showEditor = True } 
-                    -- append new Item to bottom of List
-                    EvKey (KChar 'A') []    -> continue $ s {insertLocal = Bottom, showEditor = True }
-                    -- handle other events
-                    ev -> continue =<< handleEventLensed s tasks (BL.handleListEventVi BL.handleListEvent) ev
-                    -- _ -> continue s
+            VtyEvent vtye -> matchEvent s (keybinds s) vtye
             _ -> continue s
         else handleInsertEvent s e
 
@@ -332,3 +300,34 @@ handleInsertEvent s e = case e of
             -- everything else
             _ -> continue =<< handleEventLensed s itemEditor BE.handleEditorEvent vtye
     _ -> continue s
+
+-- | match event with keybinds
+matchEvent :: TuiState -> CKeys -> Event ->  EventM WidgetName (Next TuiState)
+matchEvent s k e
+    -- quit
+    | e == quit k               = halt s
+    | e == EvKey KEsc []        = halt s
+    -- move selected Item up
+    | e == moveUp k             = updateFile $ moveSelection Up s
+    | e == EvKey KUp [MShift]   = updateFile $ moveSelection Up s
+    -- moce selected Item down
+    | e == moveDown k           = updateFile $ moveSelection Down s
+    | e == EvKey KDown [MShift] = updateFile $ moveSelection Down s
+    -- selction up
+    | e == up k                 = continue $ s {_tasks = BL.listMoveUp $ _tasks s}
+    -- selectoin down
+    | e == down k               = continue $ s {_tasks = BL.listMoveDown $ _tasks s}
+    -- toggle check status
+    | e == check k              = updateFile $ toggleCheck s
+    -- delete selection
+    | e == delete k             = updateFile $ removeItem s
+    -- edit selection
+    | e == editMode k           = continue $ prepareEditItem s
+    -- insertions
+    | e == insert k             = continue $ s {insertLocal = Above, showEditor = True }
+    | e == top k                = continue $ s {insertLocal = Top, showEditor = True }
+    | e == append k             = continue $ s {insertLocal = Below, showEditor = True }
+    | e == top k                = continue $ s {insertLocal = Bottom, showEditor = True }
+    -- other events; default List events
+    | otherwise                 = continue =<< handleEventLensed s tasks (BL.handleListEventVi BL.handleListEvent) e
+
