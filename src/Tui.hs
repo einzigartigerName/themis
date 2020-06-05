@@ -31,6 +31,8 @@ import qualified Data.Vector as Vec
 import Graphics.Vty.Input.Events
 import Graphics.Vty.Attributes
 
+import Text.Printf
+
 
 {-------------------------------------------------------------------------------------------------
                                             DataTypes
@@ -38,7 +40,7 @@ import Graphics.Vty.Attributes
 data InsertLocation = Top | Bottom | Above | Below
     deriving Eq
 
-data WidgetName = WEditor | WList
+data WidgetName = WEditor | WList | WHelp
     deriving (Eq, Ord, Show)
 
 data TuiState = TuiState
@@ -47,9 +49,11 @@ data TuiState = TuiState
     , file :: FilePath
     , nID :: Int
     , _itemEditor :: BE.Editor String WidgetName
+    , helpV :: ViewportScroll WidgetName
+    , insertLocal :: InsertLocation
     , showEditor :: Bool
     , editItem :: Bool
-    , insertLocal :: InsertLocation
+    , helpMode :: Bool
     }
 makeLenses ''TuiState
 
@@ -91,9 +95,11 @@ buildInitialState ts keys fp =
         , file = fp
         , nID = T.nextID ts
         , _itemEditor = BE.editor WEditor (Just 1) ""
+        , helpV = viewportScroll WHelp
         , showEditor = ts == []
         , editItem = False
         , insertLocal = Bottom
+        , helpMode = False
         }
 
 -- | writes changes to file
@@ -126,10 +132,12 @@ drawTui s =
         li = _tasks s
         lRender = [padBottom (Pad 2) $ BL.renderList drawItem True li]
         empty = null $ BL.listElements li
-        filePath = [drawInfoLayer s]
-    in if e || empty
-        then filePath ++ (drawEditor (editItem s) (_itemEditor s)) ++ lRender
-        else filePath ++ lRender
+        filePath = [drawFileLayer s]
+    in if not $ helpMode s
+        then if e || empty
+            then filePath ++ (drawEditor (editItem s) (_itemEditor s)) ++ lRender
+            else filePath ++ lRender
+        else drawHelp s
 
 -- | draw editor
 drawEditor :: Bool -> BE.Editor String WidgetName -> [Widget WidgetName]
@@ -153,13 +161,44 @@ drawItem sel =
     serializeItemW
 
 -- | draw Row at bottom to Show FilePath
-drawInfoLayer :: TuiState -> Widget WidgetName
-drawInfoLayer s = Widget Fixed Fixed $ do
+drawFileLayer :: TuiState -> Widget WidgetName
+drawFileLayer s = Widget Fixed Fixed $ do
     c <- getContext
     let h = c^.availHeightL
     render $ translateBy (Location (0, h-1)) $
         withAttr fileAttr $
         str ("Using File: " <> file s)
+
+-- | draw help page
+drawHelp :: TuiState -> [Widget WidgetName]
+drawHelp s = drawHelpLayer : [viewport WHelp Both $
+    withAttr itemAttr $ vBox $ drawKeys $ keybinds s]
+
+-- | draw keybindings
+drawKeys :: CKeys -> [Widget WidgetName]
+drawKeys k =
+    [ str (printf "%-20s %s" ("Insert Above"::String) (printKeybind $ insert k))
+    , str (printf "%-20s %s" ("Insert Top"::String) (printKeybind $ top k))
+    , str (printf "%-20s %s" ("Insert Above"::String) (printKeybind $ append k))
+    , str (printf "%-20s %s" ("Insert Bottom"::String) (printKeybind $ bottom k))
+    , str (printf "%-20s %s" ("Edit"::String) (printKeybind $ editMode k))
+    , str (printf "%-20s %s" ("Delete"::String) (printKeybind $ delete k))
+    , str (printf "%-20s %s" ("Toggle Checked"::String) (printKeybind $ check k))
+    , str (printf "%-20s %s" ("Up"::String) (printKeybind $ up k))
+    , str (printf "%-20s %s" ("Down"::String) (printKeybind $ down k))
+    , str (printf "%-20s %s" ("Move Up"::String) (printKeybind $ moveUp k))
+    , str (printf "%-20s %s" ("MoveDown"::String) (printKeybind $ moveDown k))
+    , str (printf "%-20s %s" ("Help"::String) (printKeybind $ help k))
+    , str (printf "%-20s %s" ("Quit"::String) (printKeybind $ quit k))
+    ]
+
+drawHelpLayer :: Widget WidgetName
+drawHelpLayer =  Widget Fixed Fixed $ do
+    c <- getContext
+    let h = c^.availHeightL
+    render $ translateBy (Location (0, h-1)) $
+        withAttr fileAttr $
+        str "Quit Help: q"
 {-------------------------------------------------------------------------------------------------
                                             items
 -------------------------------------------------------------------------------------------------}
@@ -280,11 +319,30 @@ setEditorContent = BE.editor WEditor (Just 1)
 handleTuiEvent :: TuiState -> BrickEvent WidgetName e -> EventM WidgetName (Next TuiState)
 handleTuiEvent s e =
     if not $ showEditor s
-        then case e of
-            -- KeyEvent
-            VtyEvent vtye -> matchEvent s (keybinds s) vtye
-            _ -> continue s
+        then if helpMode s
+            then handleHelpEvent s e
+            else case e of
+                -- KeyEvent
+                VtyEvent vtye -> matchEvent s (keybinds s) vtye
+                _ -> continue s
         else handleInsertEvent s e
+
+-- | handle events while in Editor
+handleHelpEvent :: TuiState -> BrickEvent WidgetName e -> EventM WidgetName (Next TuiState)
+handleHelpEvent s e = case e of
+    VtyEvent vtye ->
+        case vtye of
+            -- cancel insert, reset editor
+            EvKey KEsc [] -> continue $ s {helpMode = False}
+            EvKey (KChar 'q') [] -> continue $ s {helpMode = False}
+            -- insert new item
+            EvKey KDown []  -> vScrollBy (helpV s) 1 >> continue s
+            EvKey KUp []    -> vScrollBy (helpV s) (-1) >> continue s
+            EvKey KRight [] -> hScrollBy (helpV s) 1 >> continue s
+            EvKey KLeft []  -> hScrollBy (helpV s) (-1) >> continue s
+            -- jsut continue
+            _ -> continue s
+    _ -> continue s
 
 -- | handle events while in Editor
 handleInsertEvent :: TuiState -> BrickEvent WidgetName e -> EventM WidgetName (Next TuiState)
@@ -307,6 +365,7 @@ matchEvent s k e
     -- quit
     | e == quit k               = halt s
     | e == EvKey KEsc []        = halt s
+    | e == help k               = continue $ s {helpMode = True}
     -- move selected Item up
     | e == moveUp k             = updateFile $ moveSelection Up s
     | e == EvKey KUp [MShift]   = updateFile $ moveSelection Up s

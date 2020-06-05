@@ -4,6 +4,7 @@ module Config
     ( CColors (..)
     , CKeys (..)
     , parseConfig
+    , printKeybind
     )
     where
 
@@ -11,9 +12,9 @@ import Prelude hiding (readFile)
 import Graphics.Vty.Attributes.Color
 import Graphics.Vty.Input.Events
 
-import Data.Char (toUpper)
+import Data.Char (isUpper, toLower, toUpper)
 import Data.Ini.Config
-import Data.List (find)
+import Data.List (find, intersperse)
 import Data.Maybe
 import Data.Text.IO (readFile)
 
@@ -47,6 +48,7 @@ data CKeys = CKeys
     , down      :: Event
     , moveUp    :: Event
     , moveDown  :: Event
+    , help      :: Event
     , quit      :: Event
     } deriving Show
 
@@ -62,6 +64,7 @@ data MKeys = MKeys
     , downm      :: Maybe Event
     , moveUpm    :: Maybe Event
     , moveDownm  :: Maybe Event
+    , helpm      :: Maybe Event
     , quitm      :: Maybe Event
     } deriving Show
 
@@ -113,6 +116,7 @@ defaultKeys = CKeys
     , down      = (EvKey (KChar 'k') [])
     , moveUp    = (EvKey (KChar 'J') [])
     , moveDown  = (EvKey (KChar 'K') [])
+    , help      = (EvKey (KChar 'h') [])
     , quit      = (EvKey (KChar 'q') [])
     }
 
@@ -172,6 +176,7 @@ configParser = do
         mDown      <- fieldMbOf "down" string
         mMoveUp    <- fieldMbOf "moveUp" string
         mMoveDown  <- fieldMbOf "moveDown" string
+        mHelp      <- fieldMbOf "help" string
         mQuit      <- fieldMbOf "quit" string
         -- return maybe variation of keys
         return MKeys
@@ -185,7 +190,8 @@ configParser = do
             , upm        = mUp          >>= parseKey 
             , downm      = mDown        >>= parseKey   
             , moveUpm    = mMoveUp      >>= parseKey 
-            , moveDownm  = mMoveDown    >>= parseKey   
+            , moveDownm  = mMoveDown    >>= parseKey
+            , helpm      = mHelp        >>= parseKey
             , quitm      = mQuit        >>= parseKey   
             }
     -- return final product
@@ -225,6 +231,7 @@ createKeys p = case p of
         , down      = fromMaybe (EvKey (KChar 'k') []) $ downm m
         , moveUp    = fromMaybe (EvKey (KChar 'J') []) $ moveUpm m
         , moveDown  = fromMaybe (EvKey (KChar 'K') []) $ moveDownm m
+        , help      = fromMaybe (EvKey (KChar 'h') []) $ helpm m
         , quit      = fromMaybe (EvKey (KChar 'q') []) $ quitm m
         }
     Nothing -> defaultKeys
@@ -340,7 +347,7 @@ modFromStr :: String -> Maybe Modifier
 modFromStr "alt"     = Just MAlt
 modFromStr "control" = Just MCtrl
 modFromStr "shift"   = Just MShift
-modFromStr "win"     = Just MMeta
+modFromStr "super"     = Just MMeta
 modFromStr _         = Nothing
 
 -- check if its a special key
@@ -362,4 +369,35 @@ applyShift :: Key -> [Modifier] -> (Key, [Modifier])
 applyShift (KChar c) m = case find (== MShift) m of
     Just _  -> (KChar $ toUpper c, [x | x <- m, x /= MShift])
     Nothing -> (KChar c, m)
-applyShift k m = (k, m) 
+applyShift k m = (k, m)
+
+
+{-------------------------------------------------------------------------------------------------
+                                            Print - Keys
+-------------------------------------------------------------------------------------------------}
+printKeybind :: Event -> String
+printKeybind (EvKey k mod) = concat $ intersperse " + " (pMod ++ [pKey])
+    where
+        pKey = case k of
+            KChar '+'   -> "Plus"
+            KChar '-'   -> "Minus"
+            KUp         -> "Up"
+            KDown       -> "Down"
+            KLeft       -> "Left"
+            KRight      -> "Right"
+            KBS         -> "Backspace"
+            KEnter      -> "Enter"
+            KDel        -> "Delete"
+            KChar c     -> keyToStr c
+        pMod = map modToStr mod
+
+keyToStr :: Char -> String
+keyToStr c = if isUpper c
+    then "Shift + " ++ [(toLower c)]
+    else [c]
+
+modToStr :: Modifier -> String
+modToStr MAlt = "Alt"
+modToStr MShift = "Shift"
+modToStr MCtrl = "Control"
+modToStr MMeta = "Super"
