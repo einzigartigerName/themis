@@ -2,7 +2,7 @@
 Configure your experience with an [INI](https://en.wikipedia.org/wiki/INI_file) formatted config file.
 
 ## Default values
-There is a template with all default options at [doc/config](doc/config).
+There is a template with all default options at [doc/config](config).
 
 ## Colors
 Customize your todo-list's theme in the `COLOR` section of the config file. Available Colors:
