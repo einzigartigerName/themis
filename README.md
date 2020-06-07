@@ -32,10 +32,14 @@ If file does not exist, `todo` will create one.
 * `c` - toggle check
 * `d` - delete selected item
 * `q` or `Esc` - quit application
+* `h` - help panel with list of keybindings
 
 In Item Editor: 
 * `Esc` - quit edit mode (changes not saved)
 * `Enter` - save changes / insert item
+
+In Help Panel:
+* `q` - quit help
 
 ### Config
 If you want to change the keybinds or colors used, you can apply those changes in `~/.config/themis/config`.

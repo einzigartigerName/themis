@@ -24,4 +24,5 @@ up = j
 down = k
 moveUp = shift + j
 moveDown = shift + k
+help = h
 quit = q
