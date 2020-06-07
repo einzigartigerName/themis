@@ -56,7 +56,7 @@ selectionFG = #3333ff
 insert = i
 insertTop = shift + i
 ```
-For a full list of available options, have a look at [example/config](example/config). All options are listed with there default values.
+For a full list of available options, have a look at [doc/configuration.md](doc/configuration.md).
 
 **Note**: Default list movement is only shadowed by config. If no  other binding for same key, default bindings will still be useable. 
 
