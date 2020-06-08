@@ -386,7 +386,7 @@ matchEvent s k e
     | e == insert k             = continue $ s {insertLocal = Above, showEditor = True }
     | e == top k                = continue $ s {insertLocal = Top, showEditor = True }
     | e == append k             = continue $ s {insertLocal = Below, showEditor = True }
-    | e == top k                = continue $ s {insertLocal = Bottom, showEditor = True }
+    | e == bottom k                = continue $ s {insertLocal = Bottom, showEditor = True }
     -- other events; default List events
     | otherwise                 = continue =<< handleEventLensed s tasks (BL.handleListEventVi BL.handleListEvent) e
 
