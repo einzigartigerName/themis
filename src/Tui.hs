@@ -177,19 +177,19 @@ drawHelp s = drawHelpLayer : [viewport WHelp Both $
 -- | draw keybindings
 drawKeys :: CKeys -> [Widget WidgetName]
 drawKeys k =
-    [ str (printf "%-20s %s" ("Insert Above"::String) (printKeybind $ insert k))
-    , str (printf "%-20s %s" ("Insert Top"::String) (printKeybind $ top k))
-    , str (printf "%-20s %s" ("Insert Above"::String) (printKeybind $ append k))
-    , str (printf "%-20s %s" ("Insert Bottom"::String) (printKeybind $ bottom k))
-    , str (printf "%-20s %s" ("Edit"::String) (printKeybind $ editMode k))
-    , str (printf "%-20s %s" ("Delete"::String) (printKeybind $ delete k))
+    [ str (printf "%-20s %s" ("Insert Above"::String)   (printKeybind $ insert k))
+    , str (printf "%-20s %s" ("Insert Top"::String)     (printKeybind $ top k))
+    , str (printf "%-20s %s" ("Insert Above"::String)   (printKeybind $ append k))
+    , str (printf "%-20s %s" ("Insert Bottom"::String)  (printKeybind $ bottom k))
+    , str (printf "%-20s %s" ("Edit"::String)           (printKeybind $ editMode k))
+    , str (printf "%-20s %s" ("Delete"::String)         (printKeybind $ delete k))
     , str (printf "%-20s %s" ("Toggle Checked"::String) (printKeybind $ check k))
-    , str (printf "%-20s %s" ("Up"::String) (printKeybind $ up k))
-    , str (printf "%-20s %s" ("Down"::String) (printKeybind $ down k))
-    , str (printf "%-20s %s" ("Move Up"::String) (printKeybind $ moveUp k))
-    , str (printf "%-20s %s" ("MoveDown"::String) (printKeybind $ moveDown k))
-    , str (printf "%-20s %s" ("Help"::String) (printKeybind $ help k))
-    , str (printf "%-20s %s" ("Quit"::String) (printKeybind $ quit k))
+    , str (printf "%-20s %s" ("Up"::String)             (printKeybind $ up k))
+    , str (printf "%-20s %s" ("Down"::String)           (printKeybind $ down k))
+    , str (printf "%-20s %s" ("Move Up"::String)        (printKeybind $ moveUp k))
+    , str (printf "%-20s %s" ("MoveDown"::String)       (printKeybind $ moveDown k))
+    , str (printf "%-20s %s" ("Help"::String)           (printKeybind $ help k))
+    , str (printf "%-20s %s" ("Quit"::String)           (printKeybind $ quit k))
     ]
 
 drawHelpLayer :: Widget WidgetName

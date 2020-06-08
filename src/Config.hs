@@ -376,7 +376,7 @@ applyShift k m = (k, m)
                                             Print - Keys
 -------------------------------------------------------------------------------------------------}
 printKeybind :: Event -> String
-printKeybind (EvKey k mod) = concat $ intersperse " + " (pMod ++ [pKey])
+printKeybind (EvKey k mods) = concat $ intersperse " + " (pMod ++ [pKey])
     where
         pKey = case k of
             KChar '+'   -> "Plus"
@@ -389,7 +389,9 @@ printKeybind (EvKey k mod) = concat $ intersperse " + " (pMod ++ [pKey])
             KEnter      -> "Enter"
             KDel        -> "Delete"
             KChar c     -> keyToStr c
-        pMod = map modToStr mod
+            _           -> ""
+        pMod = map modToStr mods
+printKeybind _ = ""
 
 keyToStr :: Char -> String
 keyToStr c = if isUpper c
