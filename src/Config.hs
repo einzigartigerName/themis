@@ -14,7 +14,7 @@ import Graphics.Vty.Input.Events
 
 import Data.Char (isUpper, toLower, toUpper)
 import Data.Ini.Config
-import Data.List (find, intersperse)
+import Data.List (find, intercalate)
 import Data.Maybe
 import Data.Text.IO (readFile)
 
@@ -105,19 +105,19 @@ defaultColors = CColors
 
 defaultKeys :: CKeys
 defaultKeys = CKeys
-    { insert    = (EvKey (KChar 'i') []) 
-    , top       = (EvKey (KChar 'I') [])
-    , append    = (EvKey (KChar 'a') [])
-    , bottom    = (EvKey (KChar 'A') [])
-    , editMode  = (EvKey (KChar 'e') [])
-    , delete    = (EvKey (KChar 'd') [])
-    , check     = (EvKey (KChar 'c') [])
-    , up        = (EvKey (KChar 'j') [])
-    , down      = (EvKey (KChar 'k') [])
-    , moveUp    = (EvKey (KChar 'J') [])
-    , moveDown  = (EvKey (KChar 'K') [])
-    , help      = (EvKey (KChar 'h') [])
-    , quit      = (EvKey (KChar 'q') [])
+    { insert    = EvKey (KChar 'i') []
+    , top       = EvKey (KChar 'I') []
+    , append    = EvKey (KChar 'a') []
+    , bottom    = EvKey (KChar 'A') []
+    , editMode  = EvKey (KChar 'e') []
+    , delete    = EvKey (KChar 'd') []
+    , check     = EvKey (KChar 'c') []
+    , up        = EvKey (KChar 'j') []
+    , down      = EvKey (KChar 'k') []
+    , moveUp    = EvKey (KChar 'J') []
+    , moveDown  = EvKey (KChar 'K') []
+    , help      = EvKey (KChar 'h') []
+    , quit      = EvKey (KChar 'q') []
     }
 
 {-------------------------------------------------------------------------------------------------
@@ -376,7 +376,7 @@ applyShift k m = (k, m)
                                             Print - Keys
 -------------------------------------------------------------------------------------------------}
 printKeybind :: Event -> String
-printKeybind (EvKey k mods) = concat $ intersperse " + " (pMod ++ [pKey])
+printKeybind (EvKey k mods) = intercalate " + " (pMod ++ [pKey])
     where
         pKey = case k of
             KChar '+'   -> "Plus"
@@ -395,7 +395,7 @@ printKeybind _ = ""
 
 keyToStr :: Char -> String
 keyToStr c = if isUpper c
-    then "Shift + " ++ [(toLower c)]
+    then "Shift + " ++ [toLower c]
     else [c]
 
 modToStr :: Modifier -> String

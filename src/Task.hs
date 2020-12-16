@@ -13,10 +13,10 @@ data Item = Item
     } deriving (Eq, Ord)
 
 instance Show Item where
-    show e = "\nEntry:\n\tID: " ++ (show $ iID e) ++ "\n\tchecked: " ++ (show $ checked e) ++ "\n\ttext: " ++ (show $ text e) ++ "\n"
+    show e = "\nEntry:\n\tID: " ++ show (iID e) ++ "\n\tchecked: " ++ show (checked e) ++ "\n\ttext: " ++ show (text e) ++ "\n"
 
 nextID :: Tasks -> ID
-nextID es = (foldr (\x acc -> if iID x > acc then iID x else acc) 0 es) + 1
+nextID es = foldr (\x acc -> if iID x > acc then iID x else acc) 0 es + 1
 
 -- | returnes an entry with the given ID if one exists
 getItemById :: Tasks -> ID -> Maybe Item
@@ -33,18 +33,18 @@ removeItemById entries rid = filter (\x -> iID x /= rid) entries
 
 -- | serialize Tasks to Text
 serializeF :: Tasks -> String
-serializeF entries = foldl serializeItemF "" entries
+serializeF = foldl serializeItemF ""
 
 -- | serialize an Entry to Text
 serializeItemF :: String -> Item -> String
 serializeItemF acc e =
     let done = if checked e then "[x] " else "[ ] " in
         -- (acc ++ (checked ++ (text e)) ++ "\n") :: T.Text
-        concat [acc, done, (text e), "\n"]
+        concat [acc, done, text e, "\n"]
 
 
 serializeW :: Tasks -> [Widget n]
-serializeW e = map serializeItemW e
+serializeW = map serializeItemW
 
 serializeItemW :: Item -> Widget n
-serializeItemW e = str $ (if checked e then "✓ " else "  ") ++ (text e)
+serializeItemW e = str $ (if checked e then "✓ " else "  ") ++ text e

@@ -27,7 +27,7 @@ parseArgs ["-d"] = execute $ Left StdDir
 parseArgs ["-l"] = execute $ Left CurrentDir 
 -- force use of given file
 parseArgs ("-f" : f) = case f of
-    (x : []) -> execute $ Right x
+    [x] -> execute $ Right x
     _ -> usage
 -- print usage
 parseArgs ("-h" : _) = usage

@@ -80,7 +80,7 @@ readItemsFromFile path = do
                     return []
         else do
             -- lazy read all lines in list
-            ls <- fmap lines $ readFile path
+            ls <- lines <$> readFile path
             -- parse lines and create list of Maybe Item
             let (_, mes) = foldl (\(nID, acc) x -> let (outID, xe) = processLine x nID in
                     (outID, xe : acc)) (1, []) ls

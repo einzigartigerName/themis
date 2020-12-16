@@ -13,12 +13,12 @@ import Graphics.Vty.Attributes
 
 buildAttrMap :: CColors -> [(AttrName, Attr)]
 buildAttrMap c =
-    [ (itemAttr,            (itemFG c)      `on` (itemBG c))
-    , (selAttr,             (selFG c)       `on` (selBG c))
-    , (fileAttr,            (fileFG c)      `on` (fileBG c))
-    , (editorBorderAttr,    (editBordFG c)  `on` (editBordBG c))
-    , (editorLableAttr,     (editLableFG c) `on` (editLableBG c))
-    , (editorAttr,          (editFG c)      `on` (editBG c))
+    [ (itemAttr,            itemFG c      `on` itemBG c)
+    , (selAttr,             selFG c       `on` selBG c)
+    , (fileAttr,            fileFG c      `on` fileBG c)
+    , (editorBorderAttr,    editBordFG c  `on` editBordBG c)
+    , (editorLableAttr,     editLableFG c `on` editLableBG c)
+    , (editorAttr,          editFG c      `on` editBG c)
     ]
 
 itemAttr :: AttrName
