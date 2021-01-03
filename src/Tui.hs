@@ -214,7 +214,7 @@ moveSelection d s =
         posM = BL.listSelected li
     in case posM of
         Just pos -> case indexNext li d of
-            Just switch -> s {_tasks = switchItems li pos switch}
+            Just switch -> s {_tasks = switchListItems pos 1 switch 1 li}
             Nothing -> s
         Nothing -> s
 
@@ -302,14 +302,31 @@ currentDepth li = case BL.listSelected li of
     Just index -> Just $ depth $ (BL.listElements li) Vec.! index
     Nothing -> Nothing
 
--- | switch two items in list
-switchItems :: BL.List WidgetName Item -> Int -> Int -> BL.List WidgetName Item
-switchItems li a b =
+-- | Switch Subvectors in a list 
+switchListItems :: Int -> Int -> Int -> Int -> BL.List WidgetName Item -> BL.List WidgetName Item
+switchListItems tFrom tCount dFrom dCount li =
     let content = BL.listElements li
-        current = content Vec.! a
-        switch = content Vec.! b
-        updated = content Vec.// [(a, switch), (b, current)]
-    in BL.listReplace updated (Just b) li
+        updated = switchVectorItems tFrom tCount dFrom dCount content
+    in BL.listReplace updated (Just dFrom) li
+
+-- | tries switching these subvectors without boundary checking
+-- | To-Index are inclusiv
+-- | Example:
+-- | [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+-- | target 3, count 2
+-- | dest   7, count 2
+-- | [0, 1, 2, 7, 8, 5, 6, 3, 4, 9]
+switchVectorItems :: Int -> Int -> Int -> Int -> Vec.Vector Item -> Vec.Vector Item
+switchVectorItems tFrom tCount dFrom dCount items = if tFrom > dFrom
+        then switchVectorItems dFrom dCount tFrom tCount items
+        else 
+            let (start, sRest) = Vec.splitAt tFrom  items
+                (target, tRest) = Vec.splitAt tCount sRest
+                (middle, mRest) = Vec.splitAt (dFrom - tFrom - tCount) tRest
+                (dest, rest) = Vec.splitAt (dCount) mRest
+            in start Vec.++ dest Vec.++ middle Vec.++ target Vec.++ rest
+
+
 {-------------------------------------------------------------------------------------------------
                                             Editor
 -------------------------------------------------------------------------------------------------}
