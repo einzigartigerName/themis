@@ -22,66 +22,71 @@ import Data.Text.IO (readFile)
                                             DataTypes
 -------------------------------------------------------------------------------------------------}
 data CColors = CColors
-    { itemBG        :: Color
-    , itemFG        :: Color
-    , selFG         :: Color
-    , selBG         :: Color
-    , fileBG        :: Color
-    , fileFG        :: Color
-    , editBordBG    :: Color
-    , editBordFG    :: Color
-    , editLableFG   :: Color
-    , editLableBG   :: Color
-    , editBG        :: Color
-    , editFG        :: Color
-    } deriving Show
-
-data CKeys = CKeys
-    { insert    :: Event
-    , top       :: Event
-    , append    :: Event
-    , bottom    :: Event
-    , editMode  :: Event
-    , delete    :: Event
-    , check     :: Event
-    , up        :: Event
-    , down      :: Event
-    , moveUp    :: Event
-    , moveDown  :: Event
-    , help      :: Event
-    , quit      :: Event
-    } deriving Show
-
-data MKeys = MKeys
-    { insertm    :: Maybe Event
-    , topm       :: Maybe Event
-    , appendm    :: Maybe Event
-    , bottomm    :: Maybe Event
-    , editm      :: Maybe Event
-    , deletem    :: Maybe Event
-    , checkm     :: Maybe Event
-    , upm        :: Maybe Event
-    , downm      :: Maybe Event
-    , moveUpm    :: Maybe Event
-    , moveDownm  :: Maybe Event
-    , helpm      :: Maybe Event
-    , quitm      :: Maybe Event
+    { itemBG        :: !Color
+    , itemFG        :: !Color
+    , selFG         :: !Color
+    , selBG         :: !Color
+    , fileBG        :: !Color
+    , fileFG        :: !Color
+    , editBordBG    :: !Color
+    , editBordFG    :: !Color
+    , editLableFG   :: !Color
+    , editLableBG   :: !Color
+    , editBG        :: !Color
+    , editFG        :: !Color
     } deriving Show
 
 data MColors = MColors
-    { itemBGm        :: Maybe Color
-    , itemFGm        :: Maybe Color
-    , selBGm         :: Maybe Color
-    , selFGm         :: Maybe Color
-    , fileBGm        :: Maybe Color
-    , fileFGm        :: Maybe Color
-    , editBordBGm    :: Maybe Color
-    , editBordFGm    :: Maybe Color
-    , editLableBGm   :: Maybe Color
-    , editLableFGm   :: Maybe Color
-    , editBGm        :: Maybe Color
-    , editFGm        :: Maybe Color
+    { itemBGm        :: !(Maybe Color)
+    , itemFGm        :: !(Maybe Color)
+    , selBGm         :: !(Maybe Color)
+    , selFGm         :: !(Maybe Color)
+    , fileBGm        :: !(Maybe Color)
+    , fileFGm        :: !(Maybe Color)
+    , editBordBGm    :: !(Maybe Color)
+    , editBordFGm    :: !(Maybe Color)
+    , editLableBGm   :: !(Maybe Color)
+    , editLableFGm   :: !(Maybe Color)
+    , editBGm        :: !(Maybe Color)
+    , editFGm        :: !(Maybe Color)
     } deriving Show
+
+
+data CKeys = CKeys
+    { insert    :: !Event
+    , top       :: !Event
+    , append    :: !Event
+    , bottom    :: !Event
+    , editMode  :: !Event
+    , delete    :: !Event
+    , check     :: !Event
+    , up        :: !Event
+    , down      :: !Event
+    , moveUp    :: !Event
+    , moveDown  :: !Event
+    , help      :: !Event
+    , quit      :: !Event
+    , subpoint  :: !Event
+    } deriving Show
+
+data MKeys = MKeys
+    { insertm    :: !(Maybe Event)
+    , topm       :: !(Maybe Event)
+    , appendm    :: !(Maybe Event)
+    , bottomm    :: !(Maybe Event)
+    , editm      :: !(Maybe Event)
+    , deletem    :: !(Maybe Event)
+    , checkm     :: !(Maybe Event)
+    , upm        :: !(Maybe Event)
+    , downm      :: !(Maybe Event)
+    , moveUpm    :: !(Maybe Event)
+    , moveDownm  :: !(Maybe Event)
+    , helpm      :: !(Maybe Event)
+    , quitm      :: !(Maybe Event)
+    , subpointm  :: !(Maybe Event)
+    } deriving Show
+
+
 
 
 {-------------------------------------------------------------------------------------------------
@@ -118,6 +123,7 @@ defaultKeys = CKeys
     , moveDown  = EvKey (KChar 'K') []
     , help      = EvKey (KChar 'h') []
     , quit      = EvKey (KChar 'q') []
+    , subpoint  = EvKey (KChar 's') []
     }
 
 {-------------------------------------------------------------------------------------------------
@@ -178,6 +184,7 @@ configParser = do
         mMoveDown  <- fieldMbOf "moveDown" string
         mHelp      <- fieldMbOf "help" string
         mQuit      <- fieldMbOf "quit" string
+        mSubpoint  <- fieldMbOf "subpoint" string
         -- return maybe variation of keys
         return MKeys
             { insertm    = mInsert      >>= parseKey  
@@ -192,7 +199,8 @@ configParser = do
             , moveUpm    = mMoveUp      >>= parseKey 
             , moveDownm  = mMoveDown    >>= parseKey
             , helpm      = mHelp        >>= parseKey
-            , quitm      = mQuit        >>= parseKey   
+            , quitm      = mQuit        >>= parseKey
+            , subpointm  = mSubpoint    >>= parseKey
             }
     -- return final product
     return (color, keys)
@@ -202,37 +210,38 @@ configParser = do
 createColors :: Maybe MColors -> CColors
 createColors p = case p of
     Just m -> CColors
-        { itemBG        = fromMaybe black $ itemBGm m
-        , itemFG        = fromMaybe brightWhite $ itemFGm m
-        , selBG         = fromMaybe brightCyan $ selBGm m
-        , selFG         = fromMaybe black $ selFGm m
-        , fileBG        = fromMaybe cyan $ fileBGm m
-        , fileFG        = fromMaybe black $ fileFGm m
-        , editBordBG    = fromMaybe black $ editBordBGm m
-        , editBordFG    = fromMaybe yellow $ editBordFGm m
-        , editLableBG   = fromMaybe black $ editLableBGm m
-        , editLableFG   = fromMaybe cyan $ editLableFGm m
-        , editBG        = fromMaybe black $ editBGm m
-        , editFG        = fromMaybe brightWhite $ editFGm m
+        { itemBG        = fromMaybe (itemBG defaultColors) $ itemBGm m
+        , itemFG        = fromMaybe (itemFG defaultColors) $ itemFGm m
+        , selBG         = fromMaybe (selBG defaultColors) $ selBGm m
+        , selFG         = fromMaybe (selFG defaultColors) $ selFGm m
+        , fileBG        = fromMaybe (fileBG defaultColors) $ fileBGm m
+        , fileFG        = fromMaybe (fileFG defaultColors) $ fileFGm m
+        , editBordBG    = fromMaybe (editBordBG defaultColors) $ editBordBGm m
+        , editBordFG    = fromMaybe (editBordFG defaultColors) $ editBordFGm m
+        , editLableBG   = fromMaybe (editLableBG defaultColors) $ editLableBGm m
+        , editLableFG   = fromMaybe (editLableFG defaultColors) $ editLableFGm m
+        , editBG        = fromMaybe (editBG defaultColors) $ editBGm m
+        , editFG        = fromMaybe (editFG defaultColors) $ editFGm m
         }
     Nothing -> defaultColors
 
 createKeys :: Maybe MKeys -> CKeys
 createKeys p = case p of
     Just m -> CKeys
-        { insert    = fromMaybe (EvKey (KChar 'i') []) $ insertm m 
-        , top       = fromMaybe (EvKey (KChar 'I') []) $ topm m
-        , append    = fromMaybe (EvKey (KChar 'a') []) $ appendm m
-        , bottom    = fromMaybe (EvKey (KChar 'A') []) $ bottomm m
-        , editMode  = fromMaybe (EvKey (KChar 'e') []) $ editm m
-        , delete    = fromMaybe (EvKey (KChar 'd') []) $ deletem m
-        , check     = fromMaybe (EvKey (KChar 'c') []) $ checkm m
-        , up        = fromMaybe (EvKey (KChar 'j') []) $ upm m
-        , down      = fromMaybe (EvKey (KChar 'k') []) $ downm m
-        , moveUp    = fromMaybe (EvKey (KChar 'J') []) $ moveUpm m
-        , moveDown  = fromMaybe (EvKey (KChar 'K') []) $ moveDownm m
-        , help      = fromMaybe (EvKey (KChar 'h') []) $ helpm m
-        , quit      = fromMaybe (EvKey (KChar 'q') []) $ quitm m
+        { insert    = fromMaybe (insert defaultKeys) $ insertm m 
+        , top       = fromMaybe (top defaultKeys) $ topm m
+        , append    = fromMaybe (append defaultKeys) $ appendm m
+        , bottom    = fromMaybe (bottom defaultKeys) $ bottomm m
+        , editMode  = fromMaybe (editMode defaultKeys) $ editm m
+        , delete    = fromMaybe (delete defaultKeys) $ deletem m
+        , check     = fromMaybe (check defaultKeys) $ checkm m
+        , up        = fromMaybe (up defaultKeys) $ upm m
+        , down      = fromMaybe (down defaultKeys) $ downm m
+        , moveUp    = fromMaybe (moveUp defaultKeys) $ moveUpm m
+        , moveDown  = fromMaybe (moveDown defaultKeys) $ moveDownm m
+        , help      = fromMaybe (help defaultKeys) $ helpm m
+        , quit      = fromMaybe (quit defaultKeys) $ quitm m
+        , subpoint  = fromMaybe (subpoint defaultKeys) $ subpointm m
         }
     Nothing -> defaultKeys
 

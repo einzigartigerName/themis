@@ -27,6 +27,7 @@ import Brick.Widgets.Core
 import Control.Monad.IO.Class (liftIO)
 
 import qualified Data.Vector as Vec
+import Data.Maybe
 
 import Graphics.Vty.Input.Events
 import Graphics.Vty.Attributes
@@ -37,23 +38,24 @@ import Text.Printf
 {-------------------------------------------------------------------------------------------------
                                             DataTypes
 -------------------------------------------------------------------------------------------------}
-data InsertLocation = Top | Bottom | Above | Below
+data InsertLocation = Top | Bottom | Above | Below | SubPoint
     deriving Eq
 
 data WidgetName = WEditor | WList | WHelp
     deriving (Eq, Ord, Show)
 
 data TuiState = TuiState
-    { keybinds :: CKeys
-    , _tasks :: BL.List WidgetName Item
-    , file :: FilePath
-    , nID :: Int
-    , _itemEditor :: BE.Editor String WidgetName
-    , helpV :: ViewportScroll WidgetName
-    , insertLocal :: InsertLocation
-    , showEditor :: Bool
-    , editItem :: Bool
-    , helpMode :: Bool
+    { keybinds :: !CKeys
+    , _tasks :: !(BL.List WidgetName Item)
+    , file :: !FilePath
+    , nID :: !Int
+    , _itemEditor :: !(BE.Editor String WidgetName)
+    , helpV :: !(ViewportScroll WidgetName)
+    , insertLocal :: !InsertLocation
+    , showEditor :: !Bool
+    , editItem :: !Bool
+    , helpMode :: !Bool
+    , subPoint :: !Bool
     }
 makeLenses ''TuiState
 
@@ -96,10 +98,11 @@ buildInitialState ts keys fp =
         , nID = T.nextID ts
         , _itemEditor = BE.editor WEditor (Just 1) ""
         , helpV = viewportScroll WHelp
-        , showEditor = ts == []
+        , showEditor = null ts
         , editItem = False
         , insertLocal = Bottom
         , helpMode = False
+        , subPoint = False
         }
 
 -- | writes changes to file
@@ -135,7 +138,7 @@ drawTui s =
         filePath = [drawFileLayer s]
     in if not $ helpMode s
         then if e || empty
-            then filePath ++ (drawEditor (editItem s) (_itemEditor s)) ++ lRender
+            then filePath ++ drawEditor (editItem s) (_itemEditor s) ++ lRender
             else filePath ++ lRender
         else drawHelp s
 
@@ -148,11 +151,13 @@ drawEditor b e =
       hLimitPercent 70 $
       
       BB.borderWithLabel
-        (BB.vBorder <+> (withAttr editorLableAttr $ str title) <+> BB.vBorder) $
+        (BB.vBorder <+> withAttr editorLableAttr (str title) <+> BB.vBorder) $
       withAttr editorAttr $ 
       BE.renderEditor (str . unlines) True e
     ]
 
+
+-- | draw single item
 drawItem :: Bool -> Item -> Widget WidgetName
 drawItem sel =
     (if sel
@@ -231,9 +236,12 @@ newItem :: TuiState -> TuiState
 newItem s =
     let nxID = nID s
         content = head $ BE.getEditContents $ _itemEditor s
-        new = Item {iID = nxID, checked = False, text = content}
         li = _tasks s
-        pos = insertPosition (insertLocal s) li
+        (local, newDepth) = case currentDepth li of
+            Just d -> if insertLocal s == SubPoint then (Below, d + 1) else (insertLocal s, d)
+            Nothing -> (Bottom, 0)
+        new = Item {depth = newDepth, iID = nxID, checked = False, text = content}
+        pos = insertPosition local li
     in if content /= ""
         then s {_tasks = BL.listInsert pos new li}
         else s
@@ -241,23 +249,22 @@ newItem s =
 -- | calc insert index
 insertPosition :: InsertLocation -> BL.List WidgetName Item -> Int
 insertPosition pos li = case pos of
-    Above -> case BL.listSelected li of 
-        Just i -> i
-        Nothing -> 0  
-    Below -> case BL.listSelected li of 
-        Just i -> i + 1
-        Nothing -> 0 
+    Above -> fromMaybe 0 (BL.listSelected li)
     Top -> 0
     Bottom -> Vec.length $ BL.listElements li
+    -- Below or SubPoint
+    _ -> case BL.listSelected li of 
+        Just i -> i + 1
+        Nothing -> 0
 
 -- | remove selected Item
 removeItem :: TuiState -> TuiState
 removeItem s =
     let li = _tasks s
         posM = BL.listSelected li
-        e = (Vec.length $ BL.listElements li) - 1 <= 0
+        e = Vec.length (BL.listElements li) - 1 <= 0
     in case posM of
-        Just pos -> s {_tasks = BL.listRemove pos li, showEditor = e}
+        Just pos -> s {_tasks = BL.listMoveDown (BL.listRemove pos li), showEditor = e}
         Nothing -> s
 
 -- | toggle checked status on selection
@@ -288,6 +295,12 @@ indexNext li dir = let len = listLength li
             in case dir of
                 Up -> if index - 1 < 0 then Nothing else Just $ index - 1 
                 Down -> if index + 1 >= len then Nothing else Just $ index + 1
+
+-- | get depth of current selected item (if available)
+currentDepth :: BL.List WidgetName Item -> Maybe Int
+currentDepth li = case BL.listSelected li of
+    Just index -> Just $ depth $ (BL.listElements li) Vec.! index
+    Nothing -> Nothing
 
 -- | switch two items in list
 switchItems :: BL.List WidgetName Item -> Int -> Int -> BL.List WidgetName Item
@@ -386,7 +399,8 @@ matchEvent s k e
     | e == insert k             = continue $ s {insertLocal = Above, showEditor = True }
     | e == top k                = continue $ s {insertLocal = Top, showEditor = True }
     | e == append k             = continue $ s {insertLocal = Below, showEditor = True }
-    | e == bottom k                = continue $ s {insertLocal = Bottom, showEditor = True }
+    | e == bottom k             = continue $ s {insertLocal = Bottom, showEditor = True }
+    | e == subpoint k           = continue $ s {insertLocal = SubPoint, showEditor = True}
     -- other events; default List events
     | otherwise                 = continue =<< handleEventLensed s tasks (BL.handleListEventVi BL.handleListEvent) e
 

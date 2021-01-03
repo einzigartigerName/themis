@@ -1,5 +1,6 @@
 module Task where
 
+import Data.List
 import Brick.Types
 import Brick.Widgets.Core
 
@@ -7,9 +8,10 @@ type ID = Int
 type Tasks = [Item]
 
 data Item = Item
-    { iID :: Int
-    , checked :: Bool
-    , text :: String
+    { depth :: !Int  
+    , iID :: !Int
+    , checked :: !Bool
+    , text :: !String
     } deriving (Eq, Ord)
 
 instance Show Item where
@@ -31,20 +33,23 @@ addItem es entry = entry : es
 removeItemById :: Tasks -> ID -> Tasks
 removeItemById entries rid = filter (\x -> iID x /= rid) entries
 
+indent :: Int -> String
+indent 0 = ""
+indent d = "  " ++ indent (d - 1)
+
 -- | serialize Tasks to Text
 serializeF :: Tasks -> String
-serializeF = foldl serializeItemF ""
+serializeF = foldl' serializeItemF ""
 
 -- | serialize an Entry to Text
 serializeItemF :: String -> Item -> String
 serializeItemF acc e =
-    let done = if checked e then "[x] " else "[ ] " in
-        -- (acc ++ (checked ++ (text e)) ++ "\n") :: T.Text
-        concat [acc, done, text e, "\n"]
-
+    let i = indent $ depth e 
+        done = if checked e then "[x] " else "[ ] " in
+        concat [acc, i, done, text e, "\n"]
 
 serializeW :: Tasks -> [Widget n]
 serializeW = map serializeItemW
 
 serializeItemW :: Item -> Widget n
-serializeItemW e = str $ (if checked e then "✓ " else "  ") ++ text e
+serializeItemW e = str $ (if checked e then "✓ " else "  ") ++  indent (depth e) ++ text e

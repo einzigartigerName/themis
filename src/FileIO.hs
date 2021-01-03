@@ -82,7 +82,7 @@ readItemsFromFile path = do
             -- lazy read all lines in list
             ls <- lines <$> readFile path
             -- parse lines and create list of Maybe Item
-            let (_, mes) = foldl (\(nID, acc) x -> let (outID, xe) = processLine x nID in
+            let (_, mes) = foldl' (\(nID, acc) x -> let (outID, xe) = processLine x nID in
                     (outID, xe : acc)) (1, []) ls
             -- return only [Item] in [Maybe Item] (filter Nothing)
             return (catMaybes mes)
@@ -100,23 +100,29 @@ processLine line nid = case parse line nid of
 
 -- parse line  to Item and applies the given ID
 parse :: String -> ID -> Maybe Item
-parse (x : xs) nid
-    | isSpace x = parse xs nid
-    | isOpeningBrack x = parseDone (x : xs) nid
+parse (x : xs) nid =
+        let (d, rest) = parseDepth (x : xs)
+        in parseItem rest d nid
 parse _ _ = Nothing
 
 -- check if task marked as done
-parseDone :: String -> ID -> Maybe Item
-parseDone (stripPrefix "[ ]" -> Just rest) eid = constructItem False eid (stripLeadingWhitespace rest)
-parseDone (stripPrefix "[x]" -> Just rest) eid = constructItem True eid (stripLeadingWhitespace rest)
-parseDone _ _ = Nothing
+parseItem :: String -> Int -> ID -> Maybe Item
+parseItem (stripPrefix "[ ]" -> Just rest) d eid = constructItem False d eid (stripLeadingWhitespace rest)
+parseItem (stripPrefix "[x]" -> Just rest) d eid = constructItem True d eid (stripLeadingWhitespace rest)
+parseItem _ _ _ = Nothing
 
--- constrcut Item from given Checked value, ID and String
-constructItem :: Bool -> ID -> String -> Maybe Item
-constructItem _ _ [] = Nothing
-constructItem b eid t = Just(Item {iID = eid, checked = b, text = t})
+-- parse indention
+parseDepth :: String -> (Int, String)
+parseDepth line = parseDepth' line 0
+parseDepth' (x : xs) d =
+    if isSpace x
+        then parseDepth' xs (d + 1)
+        else (div d 2, (x : xs))
 
-
+-- constrcut Item from given Checked value, ID, Depth and String
+constructItem :: Bool -> Int -> ID -> String -> Maybe Item
+constructItem _ _ _ [] = Nothing
+constructItem c d eid t = Just(Item {depth = d, iID = eid, checked = c, text = t})
 
 
 {-------------------------------------------------------------------------------------------------
@@ -124,16 +130,4 @@ constructItem b eid t = Just(Item {iID = eid, checked = b, text = t})
 -------------------------------------------------------------------------------------------------}
 stripLeadingWhitespace :: String -> String
 stripLeadingWhitespace (' ' : xs) = stripLeadingWhitespace xs
-stripLeadingWhitespace xs = xs 
-
-isOpeningBrack :: Char -> Bool
-isOpeningBrack c = c == '['
-
--- isClosingBrack :: Char -> Bool
--- isClosingBrack c = c == ']'
--- 
--- isHeading :: Char -> Bool
--- isHeading c = c == '#'
--- 
--- isListItem :: Char -> Bool
--- isListItem c = c == '*'
+stripLeadingWhitespace xs = xs
